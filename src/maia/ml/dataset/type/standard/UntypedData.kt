@@ -1,7 +1,7 @@
-package māia.ml.dataset.type.standard
+package maia.ml.dataset.type.standard
 
-import māia.ml.dataset.type.DataRepresentation
-import māia.ml.dataset.type.DataType
+import maia.ml.dataset.type.DataRepresentation
+import maia.ml.dataset.type.DataType
 
 /**
  * Base-class for implementations of the canonical representation of

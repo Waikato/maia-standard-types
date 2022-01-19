@@ -1,13 +1,13 @@
-package māia.ml.dataset.type.standard
+package maia.ml.dataset.type.standard
 
-import māia.ml.dataset.type.DataRepresentation
-import māia.ml.dataset.type.DataType
-import māia.ml.dataset.type.EntropicRepresentation
-import māia.ml.dataset.type.FiniteDataType
-import māia.util.*
-import māia.util.datastructure.OrderedSet
-import māia.util.datastructure.buildOrderedSet
-import māia.util.error.UNREACHABLE_CODE
+import maia.ml.dataset.type.DataRepresentation
+import maia.ml.dataset.type.DataType
+import maia.ml.dataset.type.EntropicRepresentation
+import maia.ml.dataset.type.FiniteDataType
+import maia.util.*
+import maia.util.datastructure.OrderedSet
+import maia.util.datastructure.buildOrderedSet
+import maia.util.error.UNREACHABLE_CODE
 import java.math.BigInteger
 
 /**
@@ -173,7 +173,7 @@ abstract class Nominal<
             }
         }
 
-        class EntropicRepresentation: māia.ml.dataset.type.EntropicRepresentation<EntropicRepresentation, PlaceHolder>() {
+        class EntropicRepresentation: maia.ml.dataset.type.EntropicRepresentation<EntropicRepresentation, PlaceHolder>() {
             override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, PlaceHolder, I>) : BigInteger {
                 return when (fromRepresentation) {
                     is CanonicalRepresentation -> dataType.indexOf(value as String).toBigInteger()
