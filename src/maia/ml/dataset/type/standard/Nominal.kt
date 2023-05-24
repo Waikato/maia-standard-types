@@ -12,100 +12,112 @@ import maia.util.error.UNREACHABLE_CODE
 import java.math.BigInteger
 
 /**
- * Base-class for implementations of the canonical representation of
- * the [Nominal] data-type. This representation presents values as an array of
- * probabilities for each nominal class.
- *
- * @param Self See [DataRepresentation].
- * @param N The type of [Nominal] that owns this representation.
+ * Canonical [representation][DataRepresentation] of the [Nominal]
+ * [data-type][DataType]. This representation presents values as an
+ * [array of probabilities][ClassProbabilities] for each nominal class.
  */
-abstract class NominalCanonicalRepresentation<
-        Self: NominalCanonicalRepresentation<Self, N>,
-        N: Nominal<N, Self, *, *, *>
-> : DataRepresentation<Self, N, ClassProbabilities>() {
-    final override fun isValid(value : ClassProbabilities) : Boolean = dataType.size == value.size
-    final override fun initial() : ClassProbabilities = ClassProbabilities(dataType.size)
+class NominalCanonicalRepresentation:
+    DataRepresentation<NominalCanonicalRepresentation, Nominal, ClassProbabilities>()
+{
+    override fun isValid(value : ClassProbabilities) : Boolean = dataType.size == value.size
+    override fun initial() : ClassProbabilities = ClassProbabilities(dataType.size)
+    override fun <I> convertValue(
+        value : I,
+        fromRepresentation: DataRepresentation<*, Nominal, I>
+    ): ClassProbabilities {
+        return when (fromRepresentation) {
+            is NominalCanonicalRepresentation -> value as ClassProbabilities
+            is NominalLabelRepresentation -> dataType.oneHot(value as String)
+            is NominalIndexRepresentation -> dataType.oneHot(value as Int)
+            is NominalEntropicRepresentation -> dataType.oneHot((value as BigInteger).toInt())
+            else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
+        }
+    }
 }
 
 /**
- * Base-class for implementations of the label representation of
- * the [Nominal] data-type. This representation presents values as the [String]
+ * Label [representation][DataRepresentation] of the [Nominal]
+ * [data-type][DataType]. This representation presents values as the [String]
  * names of the nominal classes.
- *
- * @param Self See [DataRepresentation].
- * @param N The type of [Nominal] that owns this representation.
  */
-abstract class NominalLabelRepresentation<
-        Self: NominalLabelRepresentation<Self, N>,
-        N: Nominal<N, *, Self, *, *>
-> : DataRepresentation<Self, N, String>() {
-    final override fun isValid(value : String) : Boolean = dataType.isCategory(value)
-    final override fun initial() : String = dataType[0]
+class NominalLabelRepresentation:
+    DataRepresentation<NominalLabelRepresentation, Nominal, String>()
+{
+    override fun isValid(value : String) : Boolean = dataType.isCategory(value)
+    override fun initial() : String = dataType[0]
+    override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, Nominal, I>) : String {
+        return when (fromRepresentation) {
+            is NominalCanonicalRepresentation -> dataType[(value as ClassProbabilities).maxIndex]
+            is NominalLabelRepresentation -> value as String
+            is NominalIndexRepresentation -> dataType[value as Int]
+            is NominalEntropicRepresentation -> dataType[(value as BigInteger).toInt()]
+            else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
+        }
+    }
 }
 
 /**
- * Base-class for implementations of the index representation of
- * the [Nominal] data-type. This representation presents values as the [Int]
+ * Index [representation][DataRepresentation] of the [Nominal]
+ * [data-type][DataType]. This representation presents values as the [Int]
  * indices of the nominal classes in the order they were declared.
- *
- * @param Self See [DataRepresentation].
- * @param N The type of [Nominal] that owns this representation.
  */
-abstract class NominalIndexRepresentation<
-        Self: NominalIndexRepresentation<Self, N>,
-        N : Nominal<N, *, *, *, Self>
-> : DataRepresentation<Self, N, Int>() {
-    final override fun isValid(value : Int) : Boolean = 0 <= value && value < dataType.numCategories
-    final override fun initial() : Int = 0
+class NominalIndexRepresentation:
+    DataRepresentation<NominalIndexRepresentation, Nominal, Int>()
+{
+    override fun isValid(value : Int) : Boolean = 0 <= value && value < dataType.numCategories
+    override fun initial() : Int = 0
+    override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, Nominal, I>) : Int {
+        return when (fromRepresentation) {
+            is NominalCanonicalRepresentation -> (value as ClassProbabilities).maxIndex
+            is NominalLabelRepresentation -> dataType.indexOf(value as String)
+            is NominalIndexRepresentation -> value as Int
+            is NominalEntropicRepresentation -> (value as BigInteger).toInt()
+            else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
+        }
+    }
 }
 
 /**
- * Base-class for implementations of nominal data-types, where
- * values must be one of a number of nominal classes.
- *
- * @param canonicalRepresentation See [DataType].
- * @param entropicRepresentation See [FiniteDataType].
- * @param indexRepresentation The index representation to use for this instance.
- * @param supportsMissingValues See [DataType].
- * @param categories    The categories in this nominal type.
- *
- * @param Self See [DataType].
- * @param C See [DataType].
- * @param E See [FiniteDataType].
- * @param I The type of index representation this data-type uses.
+ * [Entropic representation][EntropicRepresentation] of the [Nominal]
+ * [data-type][DataType].
  */
-abstract class Nominal<
-        Self: Nominal<Self, C, L, E, I>,
-        C: NominalCanonicalRepresentation<C, Self>,
-        L: NominalLabelRepresentation<L, Self>,
-        E: EntropicRepresentation<E, Self>,
-        I: NominalIndexRepresentation<I, Self>
-> private constructor(
-        canonicalRepresentation: C,
-        labelRepresentation: L,
-        entropicRepresentation : E,
-        indexRepresentation : I,
+class NominalEntropicRepresentation: EntropicRepresentation<NominalEntropicRepresentation, Nominal>() {
+    override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, Nominal, I>) : BigInteger {
+        return when (fromRepresentation) {
+            is NominalCanonicalRepresentation -> (value as ClassProbabilities).maxIndex.toBigInteger()
+            is NominalLabelRepresentation -> dataType.indexOf(value as String).toBigInteger()
+            is NominalIndexRepresentation -> (value as Int).toBigInteger()
+            is NominalEntropicRepresentation -> value as BigInteger
+            else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
+        }
+    }
+}
+
+/**
+ * Implementation of nominal [data-types][DataType], where
+ * values must be in one of a limited number of categories.
+ *
+ * @param supportsMissingValues
+ *          See [DataType.supportsMissingValues].
+ * @param categories
+ *          The categories in this nominal type.
+ */
+class Nominal private constructor(
         supportsMissingValues: Boolean,
         private val categories : OrderedSet<String>
-) : FiniteDataType<Self, C, E>(
-    canonicalRepresentation,
-    entropicRepresentation,
-    supportsMissingValues,
-    categories.size.toBigInteger()
-), OrderedSet<String> by categories {
-
+):
+    FiniteDataType<Nominal, NominalCanonicalRepresentation, NominalEntropicRepresentation>(
+        NominalCanonicalRepresentation(),
+        NominalEntropicRepresentation(),
+        supportsMissingValues,
+        categories.size.toBigInteger()
+    ),
+    OrderedSet<String> by categories
+{
     constructor(
-        canonicalRepresentation: C,
-        labelRepresentation : L,
-        entropicRepresentation : E,
-        indexRepresentation : I,
         supportsMissingValues: Boolean,
         vararg categories : String
     ) : this(
-        canonicalRepresentation,
-        labelRepresentation,
-        entropicRepresentation,
-        indexRepresentation,
         supportsMissingValues,
         buildOrderedSet { addAll(categories) }
     ) {
@@ -120,10 +132,10 @@ abstract class Nominal<
     }
 
     /** Represents each value as an index into the list of categories. */
-    val indexRepresentation by indexRepresentation
+    val indexRepresentation by NominalIndexRepresentation()
 
     /** Represents each value as the string label of a category. */
-    val labelRepresentation by labelRepresentation
+    val labelRepresentation by NominalLabelRepresentation()
 
     /** The number of nominal categories. */
     val numCategories : Int
@@ -182,13 +194,13 @@ abstract class Nominal<
         val maxIndex: Int get() = inner.maxIndex
     }
 
-    final override fun equals(other: Any?): Boolean {
+    override fun equals(other: Any?): Boolean {
         // A nominal type is equal to another if it has the same categories
         // in the same order
-        return other is Nominal<*, *, *, *, *> && other.categories == categories
+        return other is Nominal && other.categories == categories
     }
 
-    final override fun toString() : String {
+    override fun toString() : String {
         return iterator().joinToString(
                 separator = "', '",
                 prefix = "Nominal('",
@@ -196,79 +208,11 @@ abstract class Nominal<
         )
     }
 
-    final override fun hashCode(): Int {
+    override fun hashCode(): Int {
         return categories.hashCode()
     }
 
-    /**
-     * Placeholder-implementation of [Nominal].
-     */
-    class PlaceHolder(
-        supportsMissingValues: Boolean,
-        vararg categories : String
-    ): Nominal<
-            PlaceHolder,
-            PlaceHolder.CanonicalRepresentation,
-            PlaceHolder.LabelRepresentation,
-            PlaceHolder.EntropicRepresentation,
-            PlaceHolder.IndexRepresentation
-    >(
-        CanonicalRepresentation(),
-        LabelRepresentation(),
-        EntropicRepresentation(),
-        IndexRepresentation(),
-        supportsMissingValues,
-        *categories
-    ) {
-        override fun copy() : PlaceHolder = PlaceHolder(supportsMissingValues, *toTypedArray())
-
-        class CanonicalRepresentation: NominalCanonicalRepresentation<CanonicalRepresentation, PlaceHolder>() {
-            override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, PlaceHolder, I>) : maia.ml.dataset.type.standard.ClassProbabilities {
-                return when (fromRepresentation) {
-                    is CanonicalRepresentation -> value as maia.ml.dataset.type.standard.ClassProbabilities
-                    is LabelRepresentation -> dataType.oneHot(value as String)
-                    is IndexRepresentation -> dataType.oneHot(value as Int)
-                    is EntropicRepresentation -> dataType.oneHot((value as BigInteger).toInt())
-                    else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
-                }
-            }
-        }
-
-        class LabelRepresentation: NominalLabelRepresentation<LabelRepresentation, PlaceHolder>() {
-            override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, PlaceHolder, I>) : String {
-                return when (fromRepresentation) {
-                    is CanonicalRepresentation -> dataType[(value as maia.ml.dataset.type.standard.ClassProbabilities).iterator().maxWithIndex().first]
-                    is LabelRepresentation -> value as String
-                    is IndexRepresentation -> dataType[value as Int]
-                    is EntropicRepresentation -> dataType[(value as BigInteger).toInt()]
-                    else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
-                }
-            }
-
-        }
-
-        class IndexRepresentation: NominalIndexRepresentation<IndexRepresentation, PlaceHolder>() {
-            override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, PlaceHolder, I>) : Int {
-                return when (fromRepresentation) {
-                    is CanonicalRepresentation -> dataType.indexOf(value as String)
-                    is IndexRepresentation -> value as Int
-                    is EntropicRepresentation -> (value as BigInteger).toInt()
-                    else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
-                }
-            }
-        }
-
-        class EntropicRepresentation: maia.ml.dataset.type.EntropicRepresentation<EntropicRepresentation, PlaceHolder>() {
-            override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, PlaceHolder, I>) : BigInteger {
-                return when (fromRepresentation) {
-                    is CanonicalRepresentation -> dataType.indexOf(value as String).toBigInteger()
-                    is IndexRepresentation -> (value as Int).toBigInteger()
-                    is EntropicRepresentation -> value as BigInteger
-                    else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
-                }
-            }
-        }
-    }
+    override fun copy() : Nominal = Nominal(supportsMissingValues, *toTypedArray())
 
 }
 

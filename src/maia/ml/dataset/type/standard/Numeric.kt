@@ -2,66 +2,97 @@ package maia.ml.dataset.type.standard
 
 import maia.ml.dataset.type.DataRepresentation
 import maia.ml.dataset.type.DataType
+import maia.ml.dataset.type.EntropicRepresentation
 import maia.ml.dataset.type.FiniteDataType
+import maia.util.error.UNREACHABLE_CODE
+import maia.util.minus
+import maia.util.plus
+import maia.util.times
+import java.math.BigInteger
+
+/** The number of possible non-NaN double values. */
+val DOUBLE_ENTROPY: BigInteger = (
+            (
+                (BigInteger.ONE.shiftLeft(11) - 1) // Number of normal/sub-normal exponents (excl. NaN/Inf exponent 0x3FF)
+                * BigInteger.ONE.shiftLeft(52) // Number of mantissa values
+                + 1 // Infinity
+            ) * 2 // Positive and negative values, including negative zero
+        )
 
 /**
- * Base-class for implementations of the canonical representation of
- * the [Numeric] data-type. This representation presents values as [Double]
+ * Canonical [representation][DataRepresentation] of the [Numeric]
+ * [data-type][DataType]. This representation presents values as [Double]
  * numeric values.
- *
- * @param Self See [DataRepresentation].
- * @param D The type of [Numeric] that owns this representation.
  */
-abstract class NumericCanonicalRepresentation<
-        Self: NumericCanonicalRepresentation<Self, D>,
-        D: Numeric<D, Self>
-> :
-    DataRepresentation<Self, D, Double>()
+class NumericCanonicalRepresentation:
+    DataRepresentation<NumericCanonicalRepresentation, Numeric, Double>()
 {
-    final override fun isValid(value : Double) : Boolean = !value.isNaN()
-    final override fun initial() : Double = 0.0
+    override fun isValid(value : Double) : Boolean = !value.isNaN()
+    override fun initial() : Double = 0.0
+    override fun <I> convertValue(
+        value : I,
+        fromRepresentation: DataRepresentation<*, Numeric, I>
+    ): Double {
+        return when (fromRepresentation) {
+            is NumericCanonicalRepresentation -> value as Double
+            is NumericEntropicRepresentation -> {
+                // Get the binary representation
+                val bits = (value as BigInteger).toLong()
+
+                // Shift the sign bit to the end
+                (bits ushr 1) or (bits shl 63)
+
+                return Double.fromBits(bits)
+
+            }
+            else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
+        }
+    }
+}
+/**
+ * [Entropic representation][EntropicRepresentation] of the [Numeric]
+ * [data-type][DataType].
+ */
+class NumericEntropicRepresentation: EntropicRepresentation<NumericEntropicRepresentation, Numeric>()
+{
+    override fun <I> convertValue(
+        value : I,
+        fromRepresentation: DataRepresentation<*, Numeric, I>
+    ): BigInteger {
+        return when (fromRepresentation) {
+            is NumericCanonicalRepresentation -> {
+                // Get the binary representation
+                val bits = (value as Double).toRawBits()
+
+                // Shift the sign bit to the beginning
+                (bits shl 1) or (bits ushr 63)
+
+                return bits.toBigInteger()
+            }
+            is NumericEntropicRepresentation -> value as BigInteger
+            else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
+        }
+    }
 }
 
 /**
- * Base-class for implementations of numeric data-types, where
- * values must a number.
+ * Numeric data-type, where values are a number.
  *
- * @param canonicalRepresentation See [DataType].
- * @param supportsMissingValues See [DataType].
- *
- * @param Self See [DataType].
- * @param C See [DataType].
+ * @param supportsMissingValues
+ *          See [DataType.supportsMissingValues].
  */
-abstract class Numeric<
-        Self: Numeric<Self, C>,
-        C: NumericCanonicalRepresentation<C, Self>
->(
-    canonicalRepresentation: C,
+class Numeric(
     supportsMissingValues: Boolean
-) : DataType<Self, C>(
-    canonicalRepresentation,
-    supportsMissingValues
-) {
-    final override fun toString() : String = "Numeric"
-    final override fun equals(other : Any?) : Boolean = other is Numeric<*, *>
-    final override fun hashCode() : Int = Numeric::class.hashCode()
-
-    /**
-     * Placeholder-implementation of [Numeric].
-     */
-    class PlaceHolder(
-        supportsMissingValues: Boolean
-    ) : Numeric<PlaceHolder, PlaceHolder.CanonicalRepresentation>(
-        CanonicalRepresentation(),
-        supportsMissingValues
-    ) {
-        override fun copy() : PlaceHolder = PlaceHolder(supportsMissingValues)
-
-        class CanonicalRepresentation: NumericCanonicalRepresentation<CanonicalRepresentation, PlaceHolder>() {
-            override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, PlaceHolder, I>) : Double {
-                // This is the only representation for this type, so I always is Double
-                return value as Double
-            }
-        }
-    }
+):
+    FiniteDataType<Numeric, NumericCanonicalRepresentation, NumericEntropicRepresentation>(
+        NumericCanonicalRepresentation(),
+        NumericEntropicRepresentation(),
+        supportsMissingValues,
+        DOUBLE_ENTROPY
+    )
+{
+    override fun toString() : String = "Numeric"
+    override fun equals(other : Any?) : Boolean = other is Numeric
+    override fun hashCode() : Int = Numeric::class.hashCode()
+    override fun copy() : Numeric = Numeric(supportsMissingValues)
 }

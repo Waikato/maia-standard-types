@@ -2,63 +2,42 @@ package maia.ml.dataset.type.standard
 
 import maia.ml.dataset.type.DataRepresentation
 import maia.ml.dataset.type.DataType
+import maia.ml.dataset.type.EntropicRepresentation
+import maia.util.error.UNREACHABLE_CODE
+import java.math.BigInteger
 
 /**
- * Base-class for implementations of the canonical representation of
- * the [UntypedData] data-type. This representation presents values as Kotlin's
+ * Canonical [representation][DataRepresentation] of the [UntypedData]
+ * [data-type][DataType]. This representation presents values as Kotlin's
  * base type, [Any]?.
- *
- * @param Self See [DataRepresentation].
- * @param D The type of [UntypedData] that owns this representation.
  */
-abstract class UntypedRepresentation<
-        Self: UntypedRepresentation<Self, D>,
-        D: UntypedData<D, Self>
-> : DataRepresentation<Self, D, Any?>()
+class UntypedCanonicalRepresentation:
+    DataRepresentation<UntypedCanonicalRepresentation, UntypedData, Any?>()
 {
-    final override fun isValid(value : Any?) : Boolean = true
-    final override fun initial() : Any? = null
+    override fun isValid(value : Any?) : Boolean = true
+    override fun initial() : Any? = null
+    override fun <I> convertValue(
+        value : I,
+        fromRepresentation: DataRepresentation<*, UntypedData, I>
+    ): Any? {
+        return value
+    }
 }
 
 /**
- * Base-class for implementations of untyped data-types, where
- * values can be anything.
+ * Untyped [data-type][DataType], where values can be anything.
  *
- * @param canonicalRepresentation See [DataType].
- * @param supportsMissingValues See [DataType].
- *
- * @param Self See [DataType].
- * @param C See [DataType].
+ * @param supportsMissingValues
+ *          See [DataType.supportsMissingValues].
  */
-abstract class UntypedData<
-        Self: UntypedData<Self, C>,
-        C: UntypedRepresentation<C, Self>
->(
-    canonicalRepresentation : C,
+class UntypedData(
     supportsMissingValues: Boolean
-): DataType<Self, C>(
-    canonicalRepresentation,
+): DataType<UntypedData, UntypedCanonicalRepresentation>(
+    UntypedCanonicalRepresentation(),
     supportsMissingValues
 ) {
-    final override fun toString() : String = "Untyped"
-    final override fun equals(other : Any?) : Boolean = other is UntypedData<*, *>
-    final override fun hashCode() : Int = UntypedData::class.hashCode()
-
-    /**
-     * Place-holder implementation of [UntypedData].
-     */
-    class PlaceHolder(
-        supportsMissingValues: Boolean
-    ): UntypedData<PlaceHolder, PlaceHolder.Representation>(
-        Representation(),
-        supportsMissingValues
-    ) {
-        override fun copy() : PlaceHolder = PlaceHolder(supportsMissingValues)
-
-        class Representation: UntypedRepresentation<Representation, PlaceHolder>() {
-            override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, PlaceHolder, I>) : Any? {
-                return value
-            }
-        }
-    }
+    override fun toString() : String = "Untyped"
+    override fun equals(other : Any?) : Boolean = other is UntypedData
+    override fun hashCode() : Int = UntypedData::class.hashCode()
+    override fun copy() : UntypedData = UntypedData(supportsMissingValues)
 }
