@@ -177,6 +177,9 @@ abstract class Nominal<
             if (labelIndex == -1) throw IllegalArgumentException("Unknown label '$label'")
             return inner[labelIndex]
         }
+
+        /** The index of the class with the highest probability. */
+        val maxIndex: Int get() = inner.maxIndex
     }
 
     final override fun equals(other: Any?): Boolean {
@@ -328,4 +331,7 @@ class ClassProbabilities private constructor(
             }
         }
     )
+
+    /** The index of the class with the highest probability. */
+    val maxIndex: Int = probabilities.iterator().maxWithIndex().first
 }
