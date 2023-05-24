@@ -13,11 +13,32 @@ import java.math.BigInteger
 
 /**
  * Canonical [representation][DataRepresentation] of the [Nominal]
+ * [data-type][DataType]. This representation presents values as the [String]
+ * names of the nominal classes.
+ */
+class NominalCanonicalRepresentation:
+    DataRepresentation<NominalCanonicalRepresentation, Nominal, String>()
+{
+    override fun isValid(value : String) : Boolean = dataType.isCategory(value)
+    override fun initial() : String = dataType[0]
+    override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, Nominal, I>) : String {
+        return when (fromRepresentation) {
+            is NominalCanonicalRepresentation -> value as String
+            is NominalProbabilitiesRepresentation -> dataType[(value as ClassProbabilities).maxIndex]
+            is NominalIndexRepresentation -> dataType[value as Int]
+            is NominalEntropicRepresentation -> dataType[(value as BigInteger).toInt()]
+            else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
+        }
+    }
+}
+
+/**
+ * Class-probabilities [representation][DataRepresentation] of the [Nominal]
  * [data-type][DataType]. This representation presents values as an
  * [array of probabilities][ClassProbabilities] for each nominal class.
  */
-class NominalCanonicalRepresentation:
-    DataRepresentation<NominalCanonicalRepresentation, Nominal, ClassProbabilities>()
+class NominalProbabilitiesRepresentation:
+    DataRepresentation<NominalProbabilitiesRepresentation, Nominal, ClassProbabilities>()
 {
     override fun isValid(value : ClassProbabilities) : Boolean = dataType.size == value.size
     override fun initial() : ClassProbabilities = ClassProbabilities(dataType.size)
@@ -26,31 +47,10 @@ class NominalCanonicalRepresentation:
         fromRepresentation: DataRepresentation<*, Nominal, I>
     ): ClassProbabilities {
         return when (fromRepresentation) {
-            is NominalCanonicalRepresentation -> value as ClassProbabilities
-            is NominalLabelRepresentation -> dataType.oneHot(value as String)
+            is NominalCanonicalRepresentation -> dataType.oneHot(value as String)
+            is NominalProbabilitiesRepresentation -> value as ClassProbabilities
             is NominalIndexRepresentation -> dataType.oneHot(value as Int)
             is NominalEntropicRepresentation -> dataType.oneHot((value as BigInteger).toInt())
-            else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
-        }
-    }
-}
-
-/**
- * Label [representation][DataRepresentation] of the [Nominal]
- * [data-type][DataType]. This representation presents values as the [String]
- * names of the nominal classes.
- */
-class NominalLabelRepresentation:
-    DataRepresentation<NominalLabelRepresentation, Nominal, String>()
-{
-    override fun isValid(value : String) : Boolean = dataType.isCategory(value)
-    override fun initial() : String = dataType[0]
-    override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, Nominal, I>) : String {
-        return when (fromRepresentation) {
-            is NominalCanonicalRepresentation -> dataType[(value as ClassProbabilities).maxIndex]
-            is NominalLabelRepresentation -> value as String
-            is NominalIndexRepresentation -> dataType[value as Int]
-            is NominalEntropicRepresentation -> dataType[(value as BigInteger).toInt()]
             else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
         }
     }
@@ -68,8 +68,8 @@ class NominalIndexRepresentation:
     override fun initial() : Int = 0
     override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, Nominal, I>) : Int {
         return when (fromRepresentation) {
-            is NominalCanonicalRepresentation -> (value as ClassProbabilities).maxIndex
-            is NominalLabelRepresentation -> dataType.indexOf(value as String)
+            is NominalCanonicalRepresentation -> dataType.indexOf(value as String)
+            is NominalProbabilitiesRepresentation -> (value as ClassProbabilities).maxIndex
             is NominalIndexRepresentation -> value as Int
             is NominalEntropicRepresentation -> (value as BigInteger).toInt()
             else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
@@ -84,8 +84,8 @@ class NominalIndexRepresentation:
 class NominalEntropicRepresentation: EntropicRepresentation<NominalEntropicRepresentation, Nominal>() {
     override fun <I> convertValue(value : I, fromRepresentation : DataRepresentation<*, Nominal, I>) : BigInteger {
         return when (fromRepresentation) {
-            is NominalCanonicalRepresentation -> (value as ClassProbabilities).maxIndex.toBigInteger()
-            is NominalLabelRepresentation -> dataType.indexOf(value as String).toBigInteger()
+            is NominalCanonicalRepresentation -> dataType.indexOf(value as String).toBigInteger()
+            is NominalProbabilitiesRepresentation -> (value as ClassProbabilities).maxIndex.toBigInteger()
             is NominalIndexRepresentation -> (value as Int).toBigInteger()
             is NominalEntropicRepresentation -> value as BigInteger
             else -> UNREACHABLE_CODE("convertValue is only ever given representations that its data-type declares")
@@ -135,7 +135,7 @@ class Nominal private constructor(
     val indexRepresentation by NominalIndexRepresentation()
 
     /** Represents each value as the string label of a category. */
-    val labelRepresentation by NominalLabelRepresentation()
+    val probabilitiesRepresentation by NominalProbabilitiesRepresentation()
 
     /** The number of nominal categories. */
     val numCategories : Int
