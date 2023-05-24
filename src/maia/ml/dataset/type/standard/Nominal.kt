@@ -192,6 +192,12 @@ class Nominal private constructor(
 
         /** The index of the class with the highest probability. */
         val maxIndex: Int get() = inner.maxIndex
+
+        override fun toString() : String {
+            return zip(this@Nominal, inner).joinToString(prefix = "[", postfix = "]") { (label, probability) ->
+                "$label: $probability"
+            }
+        }
     }
 
     override fun equals(other: Any?): Boolean {
@@ -278,4 +284,10 @@ class ClassProbabilities private constructor(
 
     /** The index of the class with the highest probability. */
     val maxIndex: Int = probabilities.iterator().maxWithIndex().first
+
+    override fun toString() : String {
+        return iterator().enumerate().joinToString(prefix = "[", postfix = "]") { (index, probability) ->
+            "$index: $probability"
+        }
+    }
 }
